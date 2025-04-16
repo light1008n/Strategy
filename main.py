@@ -36,10 +36,13 @@ class Unit:
 
     def attack_base(self, base):
         if self.action_points >= 1:
-            if self.x == base.x and self.y == base.y:
+            dx = abs(self.x - base.x)
+            dy = abs(self.y - base.y)
+            if (dx == 1 and dy == 0) or (dx == 0 and dy == 1):  # ← 隣接判定（上下左右）
                 base.hp -= self.attack
-                self.action_points = 0  # 🔥 全AP消費
+                self.action_points = 0
                 print("拠点に攻撃！ 残りHP:", base.hp)
+
 
     def reset_turn(self):
         self.action_points = self.max_action_points
