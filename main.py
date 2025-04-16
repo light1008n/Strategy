@@ -13,7 +13,7 @@ RED = (255, 50, 50)
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Civ風ストラテジー（AP制+攻撃全消費）")
+pygame.display.set_caption("遠距離攻撃＆拠点侵入禁止")
 
 clock = pygame.time.Clock()
 
@@ -25,10 +25,13 @@ class Unit:
         self.max_action_points = 2
         self.action_points = self.max_action_points
 
-    def move(self, dx, dy):
+    def move(self, dx, dy, base):
         if self.action_points >= 1:
             new_x = self.x + dx
             new_y = self.y + dy
+            if new_x == base.x and new_y == base.y:
+                print("拠点には侵入できません")
+                return
             if 0 <= new_x < MAP_WIDTH and 0 <= new_y < MAP_HEIGHT:
                 self.x = new_x
                 self.y = new_y
@@ -38,11 +41,10 @@ class Unit:
         if self.action_points >= 1:
             dx = abs(self.x - base.x)
             dy = abs(self.y - base.y)
-            if (dx == 1 and dy == 0) or (dx == 0 and dy == 1):  # ← 隣接判定（上下左右）
+            if (dx == 1 and dy == 0) or (dx == 0 and dy == 1):
                 base.hp -= self.attack
                 self.action_points = 0
-                print("拠点に攻撃！ 残りHP:", base.hp)
-
+                print("近接攻撃！ 拠点の残りHP:", base.hp)
 
     def reset_turn(self):
         self.action_points = self.max_action_points
@@ -52,6 +54,15 @@ class Unit:
         font = pygame.font.SysFont(None, 24)
         ap_text = font.render(f"AP:{self.action_points}", True, WHITE)
         surface.blit(ap_text, (self.x * TILE_SIZE + 5, self.y * TILE_SIZE + 35))
+
+class RangedUnit(Unit):
+    def attack_base(self, base):
+        if self.action_points >= 1:
+            distance = abs(self.x - base.x) + abs(self.y - base.y)
+            if 1 <= distance <= 2:  # ← 距離1〜2マスで攻撃可能
+                base.hp -= self.attack
+                self.action_points = 0
+                print("遠距離攻撃！ 拠点の残りHP:", base.hp)
 
 class Base:
     def __init__(self, x, y, hp=100):
@@ -66,7 +77,7 @@ class Base:
         hp_text = font.render(f"{self.hp}", True, WHITE)
         surface.blit(hp_text, (self.x * TILE_SIZE + 5, self.y * TILE_SIZE + 5))
 
-player_unit = Unit(1, 1)
+player_unit = RangedUnit(1, 1)
 enemy_base = Base(5, 5)
 
 running = True
@@ -91,13 +102,13 @@ while running:
                 player_unit.reset_turn()
                 print("ターン終了 → AP回復")
             elif event.key == pygame.K_UP:
-                player_unit.move(0, -1)
+                player_unit.move(0, -1, enemy_base)
             elif event.key == pygame.K_DOWN:
-                player_unit.move(0, 1)
+                player_unit.move(0, 1, enemy_base)
             elif event.key == pygame.K_LEFT:
-                player_unit.move(-1, 0)
+                player_unit.move(-1, 0, enemy_base)
             elif event.key == pygame.K_RIGHT:
-                player_unit.move(1, 0)
+                player_unit.move(1, 0, enemy_base)
             elif event.key == pygame.K_SPACE:
                 player_unit.attack_base(enemy_base)
 
