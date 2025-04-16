@@ -189,6 +189,21 @@ while running:
 
     pygame.display.flip()
 
+    # === 勝利/敗北チェック ===
+    if enemy_base.hp <= 0:
+        draw_ui(screen, None, player_base, "🎉 勝利！敵拠点を破壊した")
+        pygame.display.flip()
+        pygame.time.delay(3000)
+        running = False
+        continue
+
+    if player_base.hp <= 0 or not units:
+        draw_ui(screen, None, player_base, "💀 敗北…味方が全滅または拠点が破壊された")
+        pygame.display.flip()
+        pygame.time.delay(3000)
+        running = False
+        continue
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
