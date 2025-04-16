@@ -1,11 +1,10 @@
 import pygame
 
-# 定数
 TILE_SIZE = 64
 MAP_WIDTH = 10
 MAP_HEIGHT = 8
 SCREEN_WIDTH = TILE_SIZE * MAP_WIDTH
-SCREEN_HEIGHT = TILE_SIZE * MAP_HEIGHT + 100  # UIスペース
+SCREEN_HEIGHT = TILE_SIZE * MAP_HEIGHT + 100
 
 WHITE = (255, 255, 255)
 GRAY = (200, 200, 200)
@@ -16,16 +15,16 @@ BLACK = (0, 0, 0)
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("シヴィ風ゲーム UI強化")
+pygame.display.set_caption("シヴィ風ゲーム")
 clock = pygame.time.Clock()
 font = pygame.font.SysFont("msgothic", 24)
 
-# クラス
 class Unit:
     def __init__(self, x, y, is_enemy=False):
         self.x = x
         self.y = y
         self.attack = 20
+        self.hp = 100
         self.max_action_points = 2
         self.action_points = self.max_action_points
         self.is_enemy = is_enemy
@@ -52,6 +51,15 @@ class Unit:
                 self.action_points = 0
                 print("近接攻撃！拠点の残りHP:", base.hp)
 
+    def attack_unit(self, target):
+        if self.action_points >= 1:
+            dx = abs(self.x - target.x)
+            dy = abs(self.y - target.y)
+            if (dx == 1 and dy == 0) or (dx == 0 and dy == 1):
+                target.hp -= self.attack
+                self.action_points = 0
+                print("🔫 ユニット攻撃！敵の残りHP:", target.hp)
+
     def reset_turn(self):
         self.action_points = self.max_action_points
 
@@ -61,6 +69,9 @@ class Unit:
         ap_text = font.render(f"{self.action_points}", True, WHITE)
         surface.blit(ap_text, (self.x * TILE_SIZE + 5, self.y * TILE_SIZE + 35))
 
+        hp_bar_width = int(TILE_SIZE * (self.hp / 100))
+        pygame.draw.rect(surface, RED, (self.x * TILE_SIZE, self.y * TILE_SIZE, hp_bar_width, 5))
+
 class RangedUnit(Unit):
     def attack_base(self, base):
         if self.action_points >= 1:
@@ -69,6 +80,14 @@ class RangedUnit(Unit):
                 base.hp -= self.attack
                 self.action_points = 0
                 print("遠距離攻撃！拠点の残りHP:", base.hp)
+
+    def attack_unit(self, target):
+        if self.action_points >= 1:
+            distance = abs(self.x - target.x) + abs(self.y - target.y)
+            if 1 <= distance <= 2:
+                target.hp -= self.attack
+                self.action_points = 0
+                print("遠距離ユニット攻撃！敵の残りHP:", target.hp)
 
 class Base:
     def __init__(self, x, y, hp=100):
@@ -82,22 +101,18 @@ class Base:
         hp_text = font.render(f"{self.hp}", True, WHITE)
         surface.blit(hp_text, (self.x * TILE_SIZE + 5, self.y * TILE_SIZE + 5))
 
-# UI描画
 def draw_ui(surface, current_unit, base, turn_text):
     pygame.draw.rect(surface, WHITE, (0, SCREEN_HEIGHT - 100, SCREEN_WIDTH, 100))
     pygame.draw.line(surface, GRAY, (0, SCREEN_HEIGHT - 100), (SCREEN_WIDTH, SCREEN_HEIGHT - 100), 2)
 
-    # ターン表示
     turn_label = font.render(turn_text, True, BLACK)
     surface.blit(turn_label, (10, SCREEN_HEIGHT - 90))
 
-    # ユニット情報
     if current_unit:
-        info = f"選択中: {'敵' if current_unit.is_enemy else '味方'} (AP:{current_unit.action_points}, ATK:{current_unit.attack}, 座標:{current_unit.x},{current_unit.y})"
+        info = f"選択中: {'敵' if current_unit.is_enemy else '味方'} (HP:{current_unit.hp}, AP:{current_unit.action_points}, ATK:{current_unit.attack})"
         unit_info = font.render(info, True, BLACK)
         surface.blit(unit_info, (10, SCREEN_HEIGHT - 60))
 
-    # 拠点HPバー
     bar_x = 10
     bar_y = SCREEN_HEIGHT - 30
     bar_width = 200
@@ -108,7 +123,6 @@ def draw_ui(surface, current_unit, base, turn_text):
     hp_text = font.render(f"拠点HP: {base.hp}/100", True, BLACK)
     surface.blit(hp_text, (bar_x + 210, bar_y))
 
-# 初期化
 units = [RangedUnit(1, 1), Unit(2, 2)]
 selected_unit_index = 0
 enemy_base = Base(5, 5)
@@ -124,18 +138,26 @@ def process_ai_turn():
             dy = player_base.y - ai.y
             distance = abs(dx) + abs(dy)
 
-            if isinstance(ai, RangedUnit) and 1 <= distance <= 2:
-                ai.attack_base(player_base)
-                continue
-            elif not isinstance(ai, RangedUnit) and ((abs(dx) == 1 and dy == 0) or (abs(dy) == 1 and dx == 0)):
-                ai.attack_base(player_base)
-                continue
+            for target in units:
+                if isinstance(ai, RangedUnit):
+                    if 1 <= abs(ai.x - target.x) + abs(ai.y - target.y) <= 2:
+                        ai.attack_unit(target)
+                        break
+                else:
+                    if (abs(ai.x - target.x) == 1 and ai.y == target.y) or (abs(ai.y - target.y) == 1 and ai.x == target.x):
+                        ai.attack_unit(target)
+                        break
+            else:
+                if isinstance(ai, RangedUnit) and 1 <= distance <= 2:
+                    ai.attack_base(player_base)
+                    continue
+                elif not isinstance(ai, RangedUnit) and ((abs(dx) == 1 and dy == 0) or (abs(dy) == 1 and dx == 0)):
+                    ai.attack_base(player_base)
+                    continue
+                step_x = 1 if dx > 0 else -1 if dx < 0 else 0
+                step_y = 1 if dy > 0 else -1 if dy < 0 else 0
+                ai.move(step_x, step_y, player_base, ai_units + units)
 
-            step_x = 1 if dx > 0 else -1 if dx < 0 else 0
-            step_y = 1 if dy > 0 else -1 if dy < 0 else 0
-            ai.move(step_x, step_y, player_base, ai_units + units)
-
-# メインループ
 running = True
 while running:
     screen.fill(WHITE)
@@ -147,20 +169,31 @@ while running:
     player_base.draw(screen)
     enemy_base.draw(screen)
 
+    ai_units = [u for u in ai_units if u.hp > 0]
+    units = [u for u in units if u.hp > 0]
+
+    # インデックス範囲チェック
+    if selected_unit_index >= len(units):
+        selected_unit_index = 0
+
     for idx, unit in enumerate(units):
         unit.draw(screen, selected=(idx == selected_unit_index))
 
     for ai in ai_units:
         ai.draw(screen)
 
-    draw_ui(screen, units[selected_unit_index], player_base, "プレイヤーターン")
+    if units:
+        draw_ui(screen, units[selected_unit_index], player_base, "プレイヤーターン")
+    else:
+        draw_ui(screen, None, player_base, "味方ユニット全滅…")
+
     pygame.display.flip()
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
-        elif event.type == pygame.KEYDOWN:
+        elif event.type == pygame.KEYDOWN and units:
             current_unit = units[selected_unit_index]
             if event.key == pygame.K_r:
                 for u in units:
@@ -180,7 +213,14 @@ while running:
             elif event.key == pygame.K_RIGHT:
                 current_unit.move(1, 0, enemy_base, units + ai_units)
             elif event.key == pygame.K_SPACE:
-                current_unit.attack_base(enemy_base)
+                attacked = False
+                for enemy in ai_units:
+                    current_unit.attack_unit(enemy)
+                    if current_unit.action_points == 0:
+                        attacked = True
+                        break
+                if not attacked:
+                    current_unit.attack_base(enemy_base)
 
     clock.tick(60)
 
