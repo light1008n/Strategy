@@ -1,10 +1,11 @@
 import pygame
 
+# 定数
 TILE_SIZE = 64
 MAP_WIDTH = 10
 MAP_HEIGHT = 8
 SCREEN_WIDTH = TILE_SIZE * MAP_WIDTH
-SCREEN_HEIGHT = TILE_SIZE * MAP_HEIGHT
+SCREEN_HEIGHT = TILE_SIZE * MAP_HEIGHT + 100  # UIスペース
 
 WHITE = (255, 255, 255)
 GRAY = (200, 200, 200)
@@ -15,10 +16,11 @@ BLACK = (0, 0, 0)
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("AIプレイヤー追加")
-
+pygame.display.set_caption("シヴィ風ゲーム UI強化")
 clock = pygame.time.Clock()
+font = pygame.font.SysFont("msgothic", 24)
 
+# クラス
 class Unit:
     def __init__(self, x, y, is_enemy=False):
         self.x = x
@@ -28,13 +30,13 @@ class Unit:
         self.action_points = self.max_action_points
         self.is_enemy = is_enemy
 
-    def move(self, dx, dy, base, other_units):
+    def move(self, dx, dy, base, all_units):
         if self.action_points >= 1:
             new_x = self.x + dx
             new_y = self.y + dy
             if new_x == base.x and new_y == base.y:
                 return
-            if any(u.x == new_x and u.y == new_y for u in other_units if u is not self):
+            if any(u.x == new_x and u.y == new_y for u in all_units if u is not self):
                 return
             if 0 <= new_x < MAP_WIDTH and 0 <= new_y < MAP_HEIGHT:
                 self.x = new_x
@@ -54,12 +56,8 @@ class Unit:
         self.action_points = self.max_action_points
 
     def draw(self, surface, selected=False):
-        if self.is_enemy:
-            color = BLACK
-        else:
-            color = GREEN if selected else BLUE
+        color = BLACK if self.is_enemy else (GREEN if selected else BLUE)
         pygame.draw.rect(surface, color, (self.x * TILE_SIZE, self.y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
-        font = pygame.font.SysFont(None, 24)
         ap_text = font.render(f"{self.action_points}", True, WHITE)
         surface.blit(ap_text, (self.x * TILE_SIZE + 5, self.y * TILE_SIZE + 35))
 
@@ -81,26 +79,41 @@ class Base:
     def draw(self, surface):
         color = RED if self.hp > 0 else GRAY
         pygame.draw.rect(surface, color, (self.x * TILE_SIZE, self.y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
-        font = pygame.font.SysFont(None, 24)
         hp_text = font.render(f"{self.hp}", True, WHITE)
         surface.blit(hp_text, (self.x * TILE_SIZE + 5, self.y * TILE_SIZE + 5))
 
-# プレイヤーユニット
-units = [
-    RangedUnit(1, 1),
-    Unit(2, 2),
-]
-selected_unit_index = 0
+# UI描画
+def draw_ui(surface, current_unit, base, turn_text):
+    pygame.draw.rect(surface, WHITE, (0, SCREEN_HEIGHT - 100, SCREEN_WIDTH, 100))
+    pygame.draw.line(surface, GRAY, (0, SCREEN_HEIGHT - 100), (SCREEN_WIDTH, SCREEN_HEIGHT - 100), 2)
 
-# 拠点
+    # ターン表示
+    turn_label = font.render(turn_text, True, BLACK)
+    surface.blit(turn_label, (10, SCREEN_HEIGHT - 90))
+
+    # ユニット情報
+    if current_unit:
+        info = f"選択中: {'敵' if current_unit.is_enemy else '味方'} (AP:{current_unit.action_points}, ATK:{current_unit.attack}, 座標:{current_unit.x},{current_unit.y})"
+        unit_info = font.render(info, True, BLACK)
+        surface.blit(unit_info, (10, SCREEN_HEIGHT - 60))
+
+    # 拠点HPバー
+    bar_x = 10
+    bar_y = SCREEN_HEIGHT - 30
+    bar_width = 200
+    bar_height = 20
+    hp_ratio = max(0, base.hp) / 100
+    pygame.draw.rect(surface, GRAY, (bar_x, bar_y, bar_width, bar_height))
+    pygame.draw.rect(surface, RED, (bar_x, bar_y, int(bar_width * hp_ratio), bar_height))
+    hp_text = font.render(f"拠点HP: {base.hp}/100", True, BLACK)
+    surface.blit(hp_text, (bar_x + 210, bar_y))
+
+# 初期化
+units = [RangedUnit(1, 1), Unit(2, 2)]
+selected_unit_index = 0
 enemy_base = Base(5, 5)
 player_base = Base(0, 0)
-
-# AIユニット
-ai_units = [
-    Unit(8, 6, is_enemy=True),
-    RangedUnit(9, 6, is_enemy=True),
-]
+ai_units = [Unit(8, 6, is_enemy=True), RangedUnit(9, 6, is_enemy=True)]
 
 def process_ai_turn():
     print("🔁 AIのターン開始")
@@ -111,21 +124,18 @@ def process_ai_turn():
             dy = player_base.y - ai.y
             distance = abs(dx) + abs(dy)
 
-            # 攻撃できるなら攻撃
-            if isinstance(ai, RangedUnit):
-                if 1 <= distance <= 2:
-                    ai.attack_base(player_base)
-                    continue
-            else:
-                if (abs(dx) == 1 and dy == 0) or (abs(dy) == 1 and dx == 0):
-                    ai.attack_base(player_base)
-                    continue
+            if isinstance(ai, RangedUnit) and 1 <= distance <= 2:
+                ai.attack_base(player_base)
+                continue
+            elif not isinstance(ai, RangedUnit) and ((abs(dx) == 1 and dy == 0) or (abs(dy) == 1 and dx == 0)):
+                ai.attack_base(player_base)
+                continue
 
-            # 移動（最短経路のような単純ロジック）
             step_x = 1 if dx > 0 else -1 if dx < 0 else 0
             step_y = 1 if dy > 0 else -1 if dy < 0 else 0
             ai.move(step_x, step_y, player_base, ai_units + units)
 
+# メインループ
 running = True
 while running:
     screen.fill(WHITE)
@@ -143,6 +153,7 @@ while running:
     for ai in ai_units:
         ai.draw(screen)
 
+    draw_ui(screen, units[selected_unit_index], player_base, "プレイヤーターン")
     pygame.display.flip()
 
     for event in pygame.event.get():
@@ -154,7 +165,7 @@ while running:
             if event.key == pygame.K_r:
                 for u in units:
                     u.reset_turn()
-                process_ai_turn()  # AIのターン実行
+                process_ai_turn()
                 print("🔄 ターン終了")
 
             elif event.key == pygame.K_TAB:
