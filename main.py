@@ -100,6 +100,8 @@ class Base:
         surface.blit(hp_text, (self.x * TILE_SIZE + 5, self.y * TILE_SIZE + 5))
 
 # ========================== ユーティリティ関数 ==========================
+player_resources = 100  # 初期資源
+
 def draw_ui(surface, current_unit, base, turn_text):
     pygame.draw.rect(surface, WHITE, (0, SCREEN_HEIGHT - 100, SCREEN_WIDTH, 100))
     pygame.draw.line(surface, GRAY, (0, SCREEN_HEIGHT - 100), (SCREEN_WIDTH, SCREEN_HEIGHT - 100), 2)
@@ -118,6 +120,8 @@ def draw_ui(surface, current_unit, base, turn_text):
     pygame.draw.rect(surface, RED, (bar_x, bar_y, int(bar_width * hp_ratio), bar_height))
     hp_text = font.render(f"拠点HP: {base.hp}/100", True, BLACK)
     surface.blit(hp_text, (bar_x + 210, bar_y))
+    res_text = font.render(f"資源: {player_resources}", True, BLACK)
+    surface.blit(res_text, (SCREEN_WIDTH - 200, SCREEN_HEIGHT - 90))
 
 def draw_start_screen():
     screen.fill(WHITE)
@@ -219,6 +223,7 @@ while running:
                 if event.key == pygame.K_r:
                     for u in units:
                         u.reset_turn()
+                    player_resources += 10  # 毎ターン +10
                     process_ai_turn(ai_units, units, player_base)
                 elif event.key == pygame.K_TAB:
                     selected_index = (selected_index + 1) % len(units)
@@ -241,19 +246,35 @@ while running:
                         current_unit.attack_base(enemy_base)
                 elif event.key == pygame.K_s:
                     if current_unit.x == player_base.x and current_unit.y == player_base.y:
+                        if player_resources >= 30:
                         # 拠点の周囲マスを探す
-                        for dx in range(-1, 2):
-                            for dy in range(-1, 2):
-                                new_x = player_base.x + dx
-                                new_y = player_base.y + dy
-                                if 0 <= new_x < MAP_WIDTH and 0 <= new_y < MAP_HEIGHT:
-                                    # 他ユニットと被らないマスに出す
-                                    if all(u.x != new_x or u.y != new_y for u in units + ai_units):
-                                        units.append(Unit(new_x, new_y))
-                                        break
-                            else:
-                                continue
-                            break
+                            for dx in range(-1, 2):
+                                for dy in range(-1, 2):
+                                    new_x = player_base.x + dx
+                                    new_y = player_base.y + dy
+                                    if 0 <= new_x < MAP_WIDTH and 0 <= new_y < MAP_HEIGHT:
+                                        if all(u.x != new_x or u.y != new_y for u in units + ai_units):
+                                            units.append(Unit(new_x, new_y))
+                                            player_resources -= 30
+                                            break
+                                else:
+                                    continue
+                                break
+                elif event.key == pygame.K_d:
+                    if current_unit.x == player_base.x and current_unit.y == player_base.y:
+                        if player_resources >= 50:
+                            for dx in range(-1, 2):
+                                for dy in range(-1, 2):
+                                    new_x = player_base.x + dx
+                                    new_y = player_base.y + dy
+                                    if 0 <= new_x < MAP_WIDTH and 0 <= new_y < MAP_HEIGHT:
+                                        if all(u.x != new_x or u.y != new_y for u in units + ai_units):
+                                            units.append(RangedUnit(new_x, new_y))
+                                            player_resources -= 50
+                                            break
+                                else:
+                                    continue
+                                break
 
     clock.tick(60)
 
