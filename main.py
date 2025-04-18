@@ -17,6 +17,8 @@ BLACK = (0, 0, 0)
 
 unit_img = pygame.image.load("images/unit.png")
 unit_img = pygame.transform.scale(unit_img, (TILE_SIZE, TILE_SIZE))
+base_img = pygame.image.load("images/castle.png")
+base_img = pygame.transform.scale(base_img, (TILE_SIZE, TILE_SIZE))
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -109,7 +111,15 @@ class Base:
 
     def draw(self, surface):
         color = RED if self.hp > 0 else GRAY
-        pygame.draw.rect(surface, color, (self.x * TILE_SIZE, self.y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+
+        colored_img = base_img.copy()
+        color_surface = pygame.Surface(colored_img.get_size()).convert_alpha()
+        color_surface.fill(color)
+        colored_img.blit(color_surface, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+        surface.blit(colored_img, (self.x * TILE_SIZE, self.y * TILE_SIZE))
+
+
         hp_text = font.render(f"{self.hp}", True, WHITE)
         surface.blit(hp_text, (self.x * TILE_SIZE + 5, self.y * TILE_SIZE + 5))
 
