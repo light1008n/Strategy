@@ -15,6 +15,9 @@ GREEN = (50, 255, 50)
 RED = (255, 50, 50)
 BLACK = (0, 0, 0)
 
+unit_img = pygame.image.load("images/unit.png")
+unit_img = pygame.transform.scale(unit_img, (TILE_SIZE, TILE_SIZE))
+
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("シヴィ風ゲーム")
@@ -65,12 +68,23 @@ class Unit:
         self.action_points = self.max_action_points
 
     def draw(self, surface, selected=False):
-        color = BLACK if self.is_enemy else (GREEN if selected else BLUE)
-        pygame.draw.rect(surface, color, (self.x * TILE_SIZE, self.y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+        color = RED if self.is_enemy else BLUE
+        
+        colored_img = unit_img.copy()
+        color_surface = pygame.Surface(colored_img.get_size()).convert_alpha()
+        color_surface.fill(color)
+        colored_img.blit(color_surface, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+        surface.blit(colored_img, (self.x * TILE_SIZE, self.y * TILE_SIZE))
+
         ap_text = font.render(f"{self.action_points}", True, WHITE)
         surface.blit(ap_text, (self.x * TILE_SIZE + 5, self.y * TILE_SIZE + 35))
         hp_bar_width = int(TILE_SIZE * (self.hp / 100))
         pygame.draw.rect(surface, RED, (self.x * TILE_SIZE, self.y * TILE_SIZE, hp_bar_width, 5))
+
+        # 選択中の枠線
+        if selected:
+            pygame.draw.rect(surface, GREEN, (self.x * TILE_SIZE, self.y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 3)
 
 class RangedUnit(Unit):
     def attack_base(self, base):
