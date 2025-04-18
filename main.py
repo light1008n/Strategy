@@ -101,6 +101,7 @@ class Base:
 
 # ========================== ユーティリティ関数 ==========================
 player_resources = 100  # 初期資源
+resource_tiles = [(3, 3), (6, 1), (1, 5)]  # 任意の座標
 
 def draw_ui(surface, current_unit, base, turn_text):
     pygame.draw.rect(surface, WHITE, (0, SCREEN_HEIGHT - 100, SCREEN_WIDTH, 100))
@@ -177,6 +178,10 @@ while running:
         for y in range(MAP_HEIGHT):
             pygame.draw.rect(screen, GRAY, (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 1)
 
+    # 資源タイルを描画（緑色）
+    for (x, y) in resource_tiles:
+        pygame.draw.rect(screen, (0, 200, 0), (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+
     player_base.draw(screen)
     enemy_base.draw(screen)
 
@@ -223,6 +228,10 @@ while running:
                 if event.key == pygame.K_r:
                     for u in units:
                         u.reset_turn()
+                    # 資源タイル上にユニットがいれば +5
+                    for u in units:
+                        if (u.x, u.y) in resource_tiles:
+                            player_resources += 5
                     player_resources += 10  # 毎ターン +10
                     process_ai_turn(ai_units, units, player_base)
                 elif event.key == pygame.K_TAB:
